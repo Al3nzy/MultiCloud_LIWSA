@@ -4,99 +4,102 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.cloudbus.cloudsim</groupId>
-    <artifactId>cloudsim-package</artifactId>
-    <name>cloudsim-package</name>
-    <description>CloudSim: A Framework For Modeling And Simulation Of Cloud Computing Infrastructures And Services</description>
-    <url>http://www.cloudbus.org/cloudsim/</url>
-    <version>7.0.1</version>
-    <packaging>pom</packaging>
+    <!--
+        This module is designed to be dropped in as a sibling of "cloudsim" and
+        "cloudsim-examples" inside a CloudSim 7.0.1 checkout, i.e.:
+
+            cloudsim-7.0.1/
+              pom.xml                     (parent - add <module>modules/liwsa-multicloud</module> here)
+              modules/
+                cloudsim/
+                cloudsim-examples/
+                liwsa-multicloud/         (this module)
+
+        If you prefer to keep it fully standalone instead of wiring it into the
+        parent reactor, just install cloudsim-7.0.1 with `mvn clean install`
+        first (so it lands in your local ~/.m2 repository) and this pom will
+        resolve org.cloudbus.cloudsim:cloudsim:7.0.1 from there regardless of
+        the <parent> declaration below.
+    -->
+    <parent>
+        <artifactId>cloudsim-package</artifactId>
+        <groupId>org.cloudbus.cloudsim</groupId>
+        <version>7.0.1</version>
+        <relativePath>../../</relativePath>
+    </parent>
+
+    <artifactId>liwsa-multicloud</artifactId>
+    <name>liwsa-multicloud</name>
+    <description>
+        Multi-cloud task scheduling research framework built on CloudSim 7.0.1 (CloudSim 7G),
+        featuring a density-adaptive, Pareto multi-objective, locust-swarm-inspired scheduler
+        (LIWSA-Task and its light-ML variant) plus literature-grounded baseline algorithms.
+    </description>
 
     <properties>
-        <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <modules>
-        <module>modules/cloudsim</module>
-        <module>modules/cloudsim-examples</module>
-    </modules>
-
-    <dependencyManagement>
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
+        <!-- The CloudSim 7.0.1 simulation core -->
+        <dependency>
+            <groupId>org.cloudbus.cloudsim</groupId>
+            <artifactId>cloudsim</artifactId>
+            <version>7.0.1</version>
+        </dependency>
+
+        <!-- Not directly imported yet, but declared explicitly (rather than relying on
+             transitively inheriting them from cloudsim's own pom) since they're natural
+             fits for future statistics/collection-heavy code in this module. -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.2.1-jre</version>
         </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.18.0</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-math3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
-            <version>3.6.1</version>
         </dependency>
-
-        <!-- https://mvnrepository.com/artifact/commons-net/commons-net -->
         <dependency>
-            <groupId>commons-net</groupId>
-            <artifactId>commons-net</artifactId>
-            <version>3.11.1</version>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.1</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.16.1</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/io.gatling.uncommons.maths/uncommons-maths -->
-        <dependency>
-            <groupId>io.gatling.uncommons.maths</groupId>
-            <artifactId>uncommons-maths</artifactId>
-            <version>1.2.3</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/com.opencsv/opencsv -->
-        <dependency>
-            <groupId>com.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
-            <version>5.9</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/com.maxmind.geoip2/geoip2 -->
-        <dependency>
-            <groupId>com.maxmind.geoip2</groupId>
-            <artifactId>geoip2</artifactId>
-            <version>4.2.0</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.easymock/easymock -->
-        <dependency>
-            <groupId>org.easymock</groupId>
-            <artifactId>easymock</artifactId>
-            <version>5.3.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
+        <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.11.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <!-- Lets every Demo class be run as `mvn exec:java -Dexec.mainClass=...`
+                 without needing to remember this plugin's fully-qualified coordinates.
+                 Default mainClass is FullDemo; override with -Dexec.mainClass for the others. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <mainClass>org.liwsa.multicloud.FullDemo</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
