@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="src" path="modules/cloudsim/src/main/java"/>
+	<classpathentry kind="src" path="modules/cloudsim/src/test/java"/>
+	<classpathentry kind="src" path="modules/cloudsim-examples/src/main/java"/>
+	<classpathentry kind="src" path="modules/cloudsim-examples/src/test/java"/>
+	<classpathentry kind="lib" path="C:/cloudsim-7.0.1/commons-math3-3.6.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/User/.m2/repository/io/gatling/uncommons/maths/uncommons-maths/1.2.3/uncommons-maths-1.2.3.jar" sourcepath="C:/Users/User/.m2/repository/io/gatling/uncommons/maths/uncommons-maths/1.2.3/uncommons-maths-1.2.3-sources.jar">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+			<attribute name="maven.groupId" value="io.gatling.uncommons.maths"/>
+			<attribute name="maven.artifactId" value="uncommons-maths"/>
+			<attribute name="maven.version" value="1.2.3"/>
+			<attribute name="maven.scope" value="compile"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/User/.m2/repository/com/opencsv/opencsv/5.9/opencsv-5.9.jar" sourcepath="C:/Users/User/.m2/repository/com/opencsv/opencsv/5.9/opencsv-5.9-sources.jar">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+			<attribute name="maven.groupId" value="com.opencsv"/>
+			<attribute name="maven.artifactId" value="opencsv"/>
+			<attribute name="maven.version" value="5.9"/>
+			<attribute name="maven.scope" value="compile"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/6"/>
+	<classpathentry kind="lib" path="C:/Users/User/Downloads/easymock-5.5.0-bundle/easymock-5.5.0/easymock-5.5.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/User/Downloads/commons-lang3-3.14.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/User/Downloads/guava-33.0.0-jre.jar"/>
+	<classpathentry kind="lib" path="C:/Users/User/Downloads/commons-io-2.14.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/User/Downloads/geoip2-4.2.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/User/Downloads/commons-net-3.11.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
