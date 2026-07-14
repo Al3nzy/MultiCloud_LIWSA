@@ -58,12 +58,12 @@ nbdist/
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Package Files #
-*.jar
+# Package Files # Alanzy commented *.Jar and *.zip to make it uploadable to github
+#*.jar
 *.war
 *.nar
 *.ear
-*.zip
+#*.zip
 *.tar.gz
 *.rar
 
