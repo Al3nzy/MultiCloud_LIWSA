@@ -243,12 +243,12 @@ local.properties
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Package Files #
-*.jar
+# Package Files # Alanzy edited *.jar and zip
+!*.jar
 *.war
 *.nar
 *.ear
-*.zip
+!*.zip
 *.tar.gz
 *.rar
 
