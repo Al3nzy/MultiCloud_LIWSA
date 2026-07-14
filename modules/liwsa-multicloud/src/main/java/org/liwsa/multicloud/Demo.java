@@ -34,7 +34,7 @@ public final class Demo {
     private Demo() { }
 
     public static void main(String[] args) {
-        List<CloudTask> tasks = buildSyntheticTasks(60);
+        List<CloudTask> tasks = buildSyntheticTasks(1000);//was 60, I made it 1000
         List<ResourceCandidate> resources = buildSyntheticResources();
 
         System.out.println("Synthetic workload: " + tasks.size() + " independent tasks, "

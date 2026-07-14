@@ -45,7 +45,7 @@ public final class CloudSimDemo {
         System.out.println("Provisioned " + clouds.size() + " clouds, "
                 + env.getAllVms().size() + " VMs total.");
 
-        List<CloudTask> tasks = buildSyntheticTasks(60);
+        List<CloudTask> tasks = buildSyntheticTasks(1000); // was 60, I made it 1000
 
         LiwsaTaskPlanningAlgorithm algo = new LiwsaTaskPlanningAlgorithm(tasks, env.getResourceCandidates());
         algo.setRandomSeed(42);

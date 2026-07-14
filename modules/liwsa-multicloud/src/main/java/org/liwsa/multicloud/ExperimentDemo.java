@@ -43,7 +43,7 @@ public final class ExperimentDemo {
     private ExperimentDemo() { }
 
     public static void main(String[] args) throws IOException {
-        List<CloudTask> tasks = buildSyntheticTasks(60);
+        List<CloudTask> tasks = buildSyntheticTasks(1000); // was 60 and I made it 1000
         List<ResourceCandidate> resources = buildSyntheticResources();
         ExperimentRunner runner = new ExperimentRunner(); // 30 runs
 
