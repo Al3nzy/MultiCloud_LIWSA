@@ -7,6 +7,8 @@ import org.liwsa.multicloud.algorithm.SchedulingResult;
 import org.liwsa.multicloud.cloud.MultiCloudEnvironment;
 import org.liwsa.multicloud.cloud.ProvisionedCloud;
 import org.liwsa.multicloud.model.CloudTask;
+import org.cloudbus.cloudsim.core.GuestEntity;
+
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -72,6 +74,7 @@ public class MultiCloudBroker extends MonitoringBrokerEX {
         List<Vm> allVms = environment.getAllVms();
         for (Vm vm : allVms) {
             vm.setUserId(getId());
+            vm.setUid(GuestEntity.getUid(vm.getUserId(), vm.getId()));
         }
         Map<Integer, CloudTask> byId = new HashMap<>();
         for (CloudTask task : tasks) {
