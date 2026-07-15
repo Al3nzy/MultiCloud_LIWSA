@@ -38,6 +38,7 @@ import java.util.Random;
  *
  * @author LIWSA Multi-Cloud Framework
  */
+@SuppressWarnings("unused")
 public final class ExperimentDemo {
 
     private ExperimentDemo() { }

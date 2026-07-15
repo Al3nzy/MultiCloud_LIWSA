@@ -78,7 +78,14 @@ public final class CloudProviderFactory {
                     peList,
                     new VmSchedulerTimeShared(peList)));
         }
-
+        for (Host h : hosts) {
+            System.out.println(spec.getName() + " Host#" + h.getId()
+                + " pes=" + h.getNumberOfPes()
+                + " totalMips=" + h.getTotalMips()
+                + " ram=" + h.getRam()
+                + " storage=" + h.getStorage()
+                + " bw=" + h.getBw());
+        }
         // Per-VM pricing lives on ResourceCandidate/VmTypeSpec, not on the
         // datacenter-wide flat cost fields here, since providers in this
         // framework price per VM type rather than uniformly.
@@ -95,8 +102,9 @@ public final class CloudProviderFactory {
         int localIndex = 0;
         for (VmTypeSpec type : spec.getVmTypes()) {
             for (int inst = 0; inst < spec.getInstancesPerType(); inst++) {
-                Vm vm = new Vm(vmId, -1, type.getMips(), type.getPes(), (int) type.getRamMb(),
-                        type.getBwMbps(), type.getStorageMb(), "Xen", new CloudletSchedulerTimeShared());
+            	double mipsPerCore = type.getMips() / type.getPes();
+            	Vm vm = new Vm(vmId, -1, mipsPerCore, type.getPes(), (int) type.getRamMb(),
+            	        type.getBwMbps(), type.getStorageMb(), "Xen", new CloudletSchedulerTimeShared());
                 vms.add(vm);
                 candidates.add(new ResourceCandidate(localIndex, datacenter.getId(), spec.getName(),
                         type.getMips(), type.getPes(), type.getRamMb(), type.getBwMbps(),

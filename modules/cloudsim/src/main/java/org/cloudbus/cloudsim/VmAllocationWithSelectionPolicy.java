@@ -9,6 +9,7 @@ import java.util.*;
 /**
  * Created by sareh on 16/12/15.
  * Modified by Remo Andreoli (March 2024)
+ * Modified by Mohammed Ala'anzy 15 July 2026
  */
 public class VmAllocationWithSelectionPolicy extends VmAllocationPolicy {
     private SelectionPolicy<HostEntity> selectionPolicy;
@@ -41,8 +42,15 @@ public class VmAllocationWithSelectionPolicy extends VmAllocationPolicy {
             if (selectedHost.isSuitableForGuest(guest)) {
                 return selectedHost;
             } else {
+                System.out.println("REJECT host#" + selectedHost.getId()
+                    + " peCap=" + selectedHost.getGuestScheduler().getPeCapacity()
+                    + " reqMaxMips=" + guest.getCurrentRequestedMaxMips()
+                    + " availMips=" + selectedHost.getGuestScheduler().getAvailableMips()
+                    + " reqTotalMips=" + guest.getCurrentRequestedTotalMips()
+                    + " ramOK=" + selectedHost.getGuestRamProvisioner().isSuitableForGuest(guest, guest.getCurrentRequestedRam())
+                    + " bwOK=" + selectedHost.getGuestBwProvisioner().isSuitableForGuest(guest, guest.getCurrentRequestedBw()));
                 excludedHostCandidates.add(selectedHost);
-                tries ++;
+                tries++;
             }
             } while (tries < getHostList().size());
         return null;

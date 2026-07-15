@@ -23,6 +23,7 @@ import java.util.logging.Level;
  * 
  * @author nikolay.grozev
  * @author Remo Andreoli
+ * @author Dr. Mohammed Ala'anzy 15 July 2026
  */
 public class DatacenterBrokerEX extends DatacenterBroker {
     /** Number of VM destructions requested. */
@@ -163,12 +164,13 @@ public class DatacenterBrokerEX extends DatacenterBroker {
         }
 
         CloudSimTags tag = ev.getTag();
-        if (tag == CloudActionTags.VM_CREATE_ACK) {
+        if (tag == CloudActionTags.VM_CREATE_ACK) { //edited by Dr. Mohammed Ala'anzy
             int[] data = (int[]) ev.getData();
             int vmId = data[1];
+            int result = data[2];
 
             GuestEntity vm = VmList.getById(getGuestList(), vmId);
-            if (vm.isBeingInstantiated()) {
+            if (result == CloudSimTags.TRUE && vm.isBeingInstantiated()) {
                 vm.setBeingInstantiated(false);
             }
             processVmCreateAck(ev);
