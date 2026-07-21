@@ -155,10 +155,21 @@ public class LiwsaTaskMLPlanningAlgorithm extends LiwsaTaskPlanningAlgorithm {
         };
     }
 
+    /**
+     * Ceiling on total OLS training rows ({@code numTrainingSamples * numTasks}).
+     * At this framework's original ~1,000-task scale the default 400 samples
+     * already stays under this (400,000 rows), so behaviour there is unchanged;
+     * it only takes effect at large task counts, where it scales the sample
+     * *count* down instead of letting memory grow unbounded with numTasks
+     * (100,000 tasks at the un-capped default would need ~40,000,000 rows).
+     */
+    private static final int MAX_TRAINING_ROWS = 500_000;
+
     private void trainPredictor() {
         int n = taskOrder.size();
         int m = resources.size();
-        int rows = numTrainingSamples * n;
+        int effectiveSamples = Math.max(1, Math.min(numTrainingSamples, MAX_TRAINING_ROWS / Math.max(n, 1)));
+        int rows = effectiveSamples * n;
 
         Map<Integer, Integer> depthMap = computeDepths();
 
@@ -167,7 +178,7 @@ public class LiwsaTaskMLPlanningAlgorithm extends LiwsaTaskPlanningAlgorithm {
         double[] yCost = new double[rows];
 
         int row = 0;
-        for (int s = 0; s < numTrainingSamples; s++) {
+        for (int s = 0; s < effectiveSamples; s++) {
             int[] genotype = new int[n];
             for (int k = 0; k < n; k++) {
                 genotype[k] = random.nextInt(m);

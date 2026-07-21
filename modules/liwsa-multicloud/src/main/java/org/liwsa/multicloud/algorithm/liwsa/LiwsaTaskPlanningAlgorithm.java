@@ -546,15 +546,32 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
     private int[] solitaryMove(int i, int[] frontNumber) {
         int n = taskOrder.size();
         int[] child = population.get(i).clone();
+
+        // Precompute each other individual's vote weight (sign * kernel(Hamming
+        // distance)) ONCE per call: it depends only on the (i, j) pair, not on
+        // the gene position k, but was previously recomputed inside the k-loop
+        // below -- an accidental O(n) redundancy (O(n^2 * populationSize)
+        // overall) that only bites at large task counts. Same numbers, computed
+        // once each; output and random-number consumption are unchanged.
+        int[] voterId = new int[populationSize];
+        double[] voterWeight = new double[populationSize];
+        int voterCount = 0;
+        for (int j = 0; j < populationSize; j++) {
+            if (j == i || frontNumber[j] == frontNumber[i]) {
+                continue;
+            }
+            double sign = (frontNumber[j] < frontNumber[i]) ? 1.0 : -1.0;
+            double d = hamming(population.get(i), population.get(j));
+            voterId[voterCount] = j;
+            voterWeight[voterCount] = sign * kernel(d);
+            voterCount++;
+        }
+
         for (int k = 0; k < n; k++) {
             Map<Integer, Double> votes = new HashMap<>();
-            for (int j = 0; j < populationSize; j++) {
-                if (j == i || frontNumber[j] == frontNumber[i]) {
-                    continue;
-                }
-                double sign = (frontNumber[j] < frontNumber[i]) ? 1.0 : -1.0;
-                double d = hamming(population.get(i), population.get(j));
-                double w = sign * kernel(d);
+            for (int t = 0; t < voterCount; t++) {
+                int j = voterId[t];
+                double w = voterWeight[t];
                 int v = population.get(j)[k];
                 votes.put(v, votes.getOrDefault(v, 0.0) + w);
             }

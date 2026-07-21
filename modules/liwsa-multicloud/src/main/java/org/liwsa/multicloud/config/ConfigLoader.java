@@ -19,6 +19,7 @@ import java.util.Properties;
  * simulation.taskWorkloadPath
  * simulation.taskWorkloadFormat      (csv | xml | json)
  * simulation.resultsOutputDir
+ * simulation.taskCountSweep          (comma-separated, e.g. "100,1000,10000,100000"; see ScalabilityDemo)
  * algorithm.populationSize
  * algorithm.generationCount
  * algorithm.numExperimentRuns
@@ -60,6 +61,7 @@ public final class ConfigLoader {
         cfg.setTaskWorkloadPath(props.getProperty("simulation.taskWorkloadPath", cfg.getTaskWorkloadPath()));
         cfg.setTaskWorkloadFormat(props.getProperty("simulation.taskWorkloadFormat", cfg.getTaskWorkloadFormat()));
         cfg.setResultsOutputDir(props.getProperty("simulation.resultsOutputDir", cfg.getResultsOutputDir()));
+        cfg.setTaskCountSweep(getIntArray(props, "simulation.taskCountSweep", cfg.getTaskCountSweep()));
 
         cfg.setPopulationSize(getInt(props, "algorithm.populationSize", cfg.getPopulationSize()));
         cfg.setGenerationCount(getInt(props, "algorithm.generationCount", cfg.getGenerationCount()));
@@ -84,5 +86,18 @@ public final class ConfigLoader {
     private static double getDouble(Properties props, String key, double fallback) {
         String raw = props.getProperty(key);
         return (raw == null || raw.isBlank()) ? fallback : Double.parseDouble(raw.trim());
+    }
+
+    private static int[] getIntArray(Properties props, String key, int[] fallback) {
+        String raw = props.getProperty(key);
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        String[] parts = raw.split(",");
+        int[] result = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            result[i] = Integer.parseInt(parts[i].trim());
+        }
+        return result;
     }
 }
