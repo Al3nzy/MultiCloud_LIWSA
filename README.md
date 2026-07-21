@@ -254,8 +254,6 @@ You'll see red error markers everywhere right after import, that's expected. The
 
 > [!TIP]
 > All of these are already bundled as actual jar files in **[`RequiredJars/`](RequiredJars/)** at the repo root, so in practice you can skip the downloads below and point **Add External JARs…** (step 4) at that folder directly. The table is still here for provenance/versioning, and in case you'd rather fetch a specific one fresh.
->
-> ⚠️ **Known mismatch:** `RequiredJars/opencsv-5.0.jar` is the wrong version — this project (see `modules/cloudsim/pom.xml` and the `.classpath` entry) is built against **OpenCSV 5.9**. Swap in `opencsv-5.9.jar` (link in the table below) if you use the bundled folder as-is.
 
 Download each jar below into a folder of your choice (e.g. a `lib/` folder next to the project), or use the bundled copies described above:
 
@@ -267,7 +265,7 @@ Download each jar below into a folder of your choice (e.g. a `lib/` folder next 
 | Apache Commons Net | 3.11.1 | https://repo1.maven.org/maven2/commons-net/commons-net/3.11.1/commons-net-3.11.1.jar |
 | Apache Commons IO | 2.14.0 | https://repo1.maven.org/maven2/commons-io/commons-io/2.14.0/commons-io-2.14.0.jar |
 | Uncommons Maths | 1.2.3 | https://repo1.maven.org/maven2/io/gatling/uncommons/maths/uncommons-maths/1.2.3/uncommons-maths-1.2.3.jar |
-| OpenCSV | **5.9** *(RequiredJars/ currently ships 5.0 — see warning above)* | https://repo1.maven.org/maven2/com/opencsv/opencsv/5.9/opencsv-5.9.jar |
+| OpenCSV | 5.9 | https://repo1.maven.org/maven2/com/opencsv/opencsv/5.9/opencsv-5.9.jar |
 | MaxMind GeoIP2 | 4.2.1 | https://repo1.maven.org/maven2/com/maxmind/geoip2/geoip2/4.2.1/geoip2-4.2.1.jar |
 | Jackson Databind | 2.17.1 | https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.17.1/jackson-databind-2.17.1.jar |
 | Jackson Core | 2.17.1 | https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.17.1/jackson-core-2.17.1.jar |
