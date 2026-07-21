@@ -52,6 +52,7 @@ The framework is built on **CloudSim 7.0.1 ("CloudSim 7G")** and ships with a li
 - 🌍 **Haversine latency model** — inter-cloud network delay estimated from region coordinates
 - 📊 **Built-in analytics** — cost, energy, utilization, and Gantt/timeline charts, no charting library required
 - 🧪 **Statistical experiment runner** — mean / min / max / stddev / 95% CI over N independent runs
+- 📈 **Low-to-high load sweep** — one combined CSV *and* four scaling charts across task-count tiers (100 to 100,000+) in a single run, via `ScalabilityDemo`
 - ⚙️ **Fully configurable** — every knob exposed via a single `config.properties`
 - 🔌 **CloudSim-integrated** — can run purely analytically, or drive a real CloudSim simulation end-to-end
 
@@ -149,7 +150,7 @@ sequenceDiagram
 
 ## 📊 Sample Results
 
-Output produced by `FullDemo` on the default synthetic 60-task workload, comparing all four algorithms:
+Output produced by `FullDemo` on the default synthetic 1000-task workload, comparing all four algorithms:
 
 <div align="center">
 
@@ -172,27 +173,31 @@ MultiCloud_LIWSA/
 │   ├── cloudsim/                        # CloudSim 7.0.1 simulation core
 │   ├── cloudsim-examples/               # CloudSim's own bundled examples
 │   └── liwsa-multicloud/                # ⭐ the algorithm — your code lives here
-│       └── src/main/java/
-│           ├── org/liwsa/multicloud/
-│           │   ├── algorithm/           # SchedulingAlgorithm contract + results
-│           │   │   ├── liwsa/           # LIWSA-Task, LIWSA-Task-ML
-│           │   │   └── baselines/       # WOA, RL-GA-lite
-│           │   ├── broker/              # MultiCloudBroker
-│           │   ├── cloud/               # Provider specs, presets, factory, environment
-│           │   ├── config/              # SimulationConfig, ConfigLoader
-│           │   ├── experiment/          # ExperimentRunner, statistics
-│           │   ├── io/                  # Task workload readers (CSV/XML/JSON)
-│           │   ├── logging/             # ExperimentLogger
-│           │   ├── metrics/             # MetricsCalculator, SchedulingMetrics
-│           │   ├── ml/                  # FeatureExtractor
-│           │   ├── model/               # CloudTask, ResourceCandidate, VmTypeSpec, ...
-│           │   ├── network/             # HaversineLatencyModel
-│           │   ├── viz/                 # ChartRenderer, GanttChartRenderer
-│           │   ├── Demo.java            # entry point 1
-│           │   ├── ExperimentDemo.java  # entry point 2
-│           │   ├── FullDemo.java        # entry point 3 (recommended first run)
-│           │   └── CloudSimDemo.java    # entry point 4
-│           └── config.properties        # see the Configuration section below
+│       └── src/main/
+│           ├── java/
+│           │   └── org/liwsa/multicloud/
+│           │       ├── algorithm/           # SchedulingAlgorithm contract + results
+│           │       │   ├── liwsa/           # LIWSA-Task, LIWSA-Task-ML
+│           │       │   └── baselines/       # WOA, RL-GA-lite
+│           │       ├── broker/              # MultiCloudBroker
+│           │       ├── cloud/               # Provider specs, presets, factory, environment
+│           │       ├── config/              # SimulationConfig, ConfigLoader
+│           │       ├── experiment/          # ExperimentRunner, statistics
+│           │       ├── io/                  # Task workload readers (CSV/XML/JSON)
+│           │       ├── logging/             # ExperimentLogger
+│           │       ├── metrics/             # MetricsCalculator, SchedulingMetrics
+│           │       ├── ml/                  # FeatureExtractor
+│           │       ├── model/               # CloudTask, ResourceCandidate, VmTypeSpec, ...
+│           │       ├── network/             # HaversineLatencyModel
+│           │       ├── viz/                 # ChartRenderer, GanttChartRenderer
+│           │       ├── Demo.java            # entry point 1
+│           │       ├── ExperimentDemo.java  # entry point 2
+│           │       ├── FullDemo.java        # entry point 3 (recommended first run)
+│           │       ├── CloudSimDemo.java    # entry point 4
+│           │       └── ScalabilityDemo.java # entry point 5 (low-to-high task-count sweep)
+│           └── resources/
+│               └── config.properties        # see the Configuration section below
+├── RequiredJars/                        # bundled copies of every jar in the table below
 └── results/                             # CSVs and charts land here
 ```
 
@@ -247,7 +252,12 @@ You'll see red error markers everywhere right after import, that's expected. The
 
 **3. Download the required libraries**
 
-Download each jar below into a folder of your choice (e.g. a `lib/` folder next to the project):
+> [!TIP]
+> All of these are already bundled as actual jar files in **[`RequiredJars/`](RequiredJars/)** at the repo root, so in practice you can skip the downloads below and point **Add External JARs…** (step 4) at that folder directly. The table is still here for provenance/versioning, and in case you'd rather fetch a specific one fresh.
+>
+> ⚠️ **Known mismatch:** `RequiredJars/opencsv-5.0.jar` is the wrong version — this project (see `modules/cloudsim/pom.xml` and the `.classpath` entry) is built against **OpenCSV 5.9**. Swap in `opencsv-5.9.jar` (link in the table below) if you use the bundled folder as-is.
+
+Download each jar below into a folder of your choice (e.g. a `lib/` folder next to the project), or use the bundled copies described above:
 
 | Library | Version | Direct download |
 |---|---|---|
@@ -257,12 +267,13 @@ Download each jar below into a folder of your choice (e.g. a `lib/` folder next 
 | Apache Commons Net | 3.11.1 | https://repo1.maven.org/maven2/commons-net/commons-net/3.11.1/commons-net-3.11.1.jar |
 | Apache Commons IO | 2.14.0 | https://repo1.maven.org/maven2/commons-io/commons-io/2.14.0/commons-io-2.14.0.jar |
 | Uncommons Maths | 1.2.3 | https://repo1.maven.org/maven2/io/gatling/uncommons/maths/uncommons-maths/1.2.3/uncommons-maths-1.2.3.jar |
-| OpenCSV | 5.9 | https://repo1.maven.org/maven2/com/opencsv/opencsv/5.9/opencsv-5.9.jar |
+| OpenCSV | **5.9** *(RequiredJars/ currently ships 5.0 — see warning above)* | https://repo1.maven.org/maven2/com/opencsv/opencsv/5.9/opencsv-5.9.jar |
 | MaxMind GeoIP2 | 4.2.1 | https://repo1.maven.org/maven2/com/maxmind/geoip2/geoip2/4.2.1/geoip2-4.2.1.jar |
 | Jackson Databind | 2.17.1 | https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.17.1/jackson-databind-2.17.1.jar |
 | Jackson Core | 2.17.1 | https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.17.1/jackson-core-2.17.1.jar |
 | Jackson Annotations | 2.17.1 | https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.17.1/jackson-annotations-2.17.1.jar |
 | EasyMock *(test-only)* | 5.5.0 | https://repo1.maven.org/maven2/org/easymock/easymock/5.5.0/easymock-5.5.0.jar |
+| JUnit Jupiter API *(test-only, also in `RequiredJars/`)* | 5.10.2 | https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar |
 
 **4. Fix the build path**
 - Right-click project → **Build Path → Configure Build Path… → Libraries** tab.
@@ -276,6 +287,7 @@ Still in *Configure Build Path…*, on the **Source** tab you should see:
 
 - `modules/cloudsim/src/main/java` — **required**
 - `modules/liwsa-multicloud/src/main/java` — **required** (this is the LIWSA algorithm)
+- `modules/liwsa-multicloud/src/main/resources` — **required** (this is `config.properties`; see [Configuration](#️-configuration))
 - `modules/cloudsim/src/test/java`, `modules/cloudsim-examples/...` — **optional**, only needed if you also want CloudSim's own bundled tests/examples
 
 If you only care about the scheduling algorithm, feel free to remove the two optional source folders (and the EasyMock/JUnit libraries with them) to keep the project lighter.
@@ -285,8 +297,8 @@ If you only care about the scheduling algorithm, feel free to remove the two opt
 2. Right-click **`FullDemo.java`** → **Run As → Java Application**.
 3. Console output appears immediately; CSVs land in `results/`, charts in `results/charts/`.
 
-> [!WARNING]
-> `config.properties` currently lives inside `src/main/java` rather than `src/main/resources`. Eclipse's own builder copies it into `bin/` automatically, so it works when run from Eclipse, but a plain `mvn` command-line build would silently ignore it. See [Configuration](#️-configuration) below for the one-time fix.
+> [!NOTE]
+> `config.properties` lives in `src/main/resources`, which is on the classpath by default for both Eclipse (already reflected in the bundled `.classpath`, per step 5 above) and a plain `mvn` command-line build — no extra setup needed either way. See [Configuration](#️-configuration) below for the full key reference.
 
 ## ⚙️ Configuration
 
@@ -295,10 +307,11 @@ All simulation and algorithm parameters are controlled from a single `config.pro
 | Key | Default | Meaning |
 |---|---|---|
 | `simulation.randomSeed` | 42 | Seed for synthetic workload generation and the algorithms |
-| `simulation.numTasks` | 60 | Size of the synthetic workload, if no workload file is given |
+| `simulation.numTasks` | 1000 | Size of the synthetic workload, if no workload file is given |
 | `simulation.taskWorkloadPath` | *(blank)* | Path to a CSV/XML/JSON workload file; blank = generate synthetic |
 | `simulation.taskWorkloadFormat` | csv | `csv` \| `xml` \| `json`, see `io.TaskWorkloadReader`'s Javadoc for the schema |
 | `simulation.resultsOutputDir` | results | Where logs/CSVs/charts are written |
+| `simulation.taskCountSweep` | 100,1000,10000,100000 | Comma-separated task counts for `ScalabilityDemo`'s low-to-high load sweep |
 | `algorithm.populationSize` | 30 | Shared by LIWSA-Task, LIWSA-Task-ML, WOA, RL-GA-lite |
 | `algorithm.generationCount` | 100 | Generations/iterations per run |
 | `algorithm.numExperimentRuns` | 30 | Independent runs in `ExperimentRunner` |
@@ -307,17 +320,18 @@ All simulation and algorithm parameters are controlled from a single `config.pro
 
 Per-cloud hardware (host counts/PEs/RAM, VM catalogs, pricing) currently lives in `cloud.CloudProviderPresets` as code rather than as properties, documented on that class as a deliberate scope boundary.
 
-> [!IMPORTANT]
-> **Where this file must live to actually be read.** `ConfigLoader.loadDefault()` looks for `config.properties` on the **classpath root**, not just anywhere in the project. Move it to `src/main/resources/config.properties` (and mark that folder as a source folder in Eclipse via **Build Path → Use as Source Folder**) so it works consistently whether you run from Eclipse or from `mvn`.
+> [!NOTE]
+> `ConfigLoader.loadDefault()` looks for `config.properties` on the **classpath root** via `getResourceAsStream`. It lives at `src/main/resources/config.properties`, which both Maven (by default convention) and Eclipse (via the bundled `.classpath`, see [Eclipse setup](#-eclipse-ide-setup-step-by-step) step 5) already put on the classpath, so no manual fix is needed.
 
 ## ▶️ Running the Demos
 
-Four entry points, in increasing order of what they exercise:
+Five entry points, in increasing order of what they exercise:
 
 - **`Demo`** — the four algorithms against a synthetic in-memory workload, no CloudSim, no config/logging/viz. Fastest smoke test that the algorithm layer works.
 - **`ExperimentDemo`** — the full 30-run × 4-algorithm statistical comparison (mean/min/max/stddev/95% CI), writes raw per-run CSVs to `results/`.
 - **`FullDemo`** — the recommended first run: reads `config.properties`, one run of each algorithm, structured logging, metrics, and chart generation.
 - **`CloudSimDemo`** — the only one that actually drives a CloudSim simulation (`CloudSim.init` → provisioned clouds → `MultiCloudBroker` → `startSimulation`), cross-checking the planner's predicted makespan against what CloudSim actually simulated.
+- **`ScalabilityDemo`** — a low-to-high **load sweep**: runs all four algorithms once each at every task count in `simulation.taskCountSweep` (100 / 1,000 / 10,000 / 100,000 by default), appends every result to one combined `results/scalability-sweep.csv`, and renders four "metric vs. task count" line charts (makespan, cost, energy proxy, algorithm runtime) to `results/charts/`, one line per algorithm each. See the Javadoc on the class itself for the two algorithm-level performance fixes this relies on to keep the 10,000/100,000 tiers practical.
 
 From Eclipse: right-click the relevant class → **Run As → Java Application**. From the command line: `mvn -pl modules/liwsa-multicloud exec:java -Dexec.mainClass=org.liwsa.multicloud.<ClassName>`.
 
