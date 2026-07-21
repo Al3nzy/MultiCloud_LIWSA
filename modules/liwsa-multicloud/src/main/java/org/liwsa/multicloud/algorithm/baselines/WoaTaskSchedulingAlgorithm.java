@@ -32,6 +32,15 @@ import java.util.Random;
  * scheduling, and is the key structural difference from our own algorithm
  * worth calling out in a baseline comparison.
  *
+ * <p>Out-of-range positions from the encircling/search/spiral formulas are
+ * folded back into {@code [0, numResources-1]} by reflection (see
+ * {@link #reflectIntoRange}), not clamped flat to the boundary -- clamping
+ * was piling a disproportionate share of a whale's task assignments onto
+ * resource 0 or resource {@code numResources-1} specifically, which made
+ * {@link #decode}'s per-resource scheduling scan (identical in structure to
+ * {@code LiwsaTaskPlanningAlgorithm}'s) far slower for this algorithm than
+ * for the others as task count grew.
+ *
  * @author LIWSA Multi-Cloud Framework
  */
 public class WoaTaskSchedulingAlgorithm implements SchedulingAlgorithm {
@@ -138,7 +147,7 @@ public class WoaTaskSchedulingAlgorithm implements SchedulingAlgorithm {
                 }
 
                 for (int k = 0; k < n; k++) {
-                    newPos[k] = clamp(newPos[k], 0, m - 1);
+                    newPos[k] = reflectIntoRange(newPos[k], 0, m - 1);
                 }
                 positions[i] = newPos;
                 double[] mc = decode(discretize(newPos, m));
@@ -192,8 +201,44 @@ public class WoaTaskSchedulingAlgorithm implements SchedulingAlgorithm {
         return g;
     }
 
-    private double clamp(double v, double lo, double hi) {
-        return Math.max(lo, Math.min(hi, v));
+    /**
+     * Folds an out-of-range value back into {@code [lo, hi]} by reflection
+     * (bouncing off each boundary) rather than clamping it flat to whichever
+     * boundary it overshot.
+     *
+     * <p>This replaces a hard {@code Math.max(lo, Math.min(hi, v))} clamp.
+     * The encircling/search/bubble-net formulas above can overshoot
+     * {@code [0, numResources-1]} by a wide margin (coefA up to
+     * &plusmn;2.0 times a delta that can itself be a couple of times the
+     * range), and hard-clamping pins every one of those overshoots to
+     * exactly {@code lo} or exactly {@code hi} -- which, applied across all
+     * numTasks positions for a whale, concentrates a disproportionate share
+     * of that whale's task assignments onto those two resources specifically.
+     * Since every algorithm's decoder (this one included) schedules tasks by
+     * scanning backward through its assigned resource's own event list for a
+     * gap, a resource that ends up with a large share of all tasks gets a
+     * backward-scan cost proportional to how backlogged its own list is --
+     * this, not the decoder itself, is what made WOA specifically blow up as
+     * task count grew, even though {@link #findFinishTime} and {@link #decode}
+     * are structurally identical to {@code LiwsaTaskPlanningAlgorithm}'s.
+     * Reflection keeps the direction/magnitude of the overshoot (a value
+     * just past the boundary lands just inside it) instead of discarding it,
+     * so it does not create that same concentration.
+     */
+    private double reflectIntoRange(double v, double lo, double hi) {
+        double range = hi - lo;
+        if (range <= 0) {
+            return lo;
+        }
+        double period = 2 * range;
+        double x = (v - lo) % period;
+        if (x < 0) {
+            x += period;
+        }
+        if (x > range) {
+            x = period - x;
+        }
+        return lo + x;
     }
 
     private int argmin(double[] values) {

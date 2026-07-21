@@ -53,16 +53,19 @@ import java.util.Random;
  * OutOfMemoryError) without them. Neither changes any algorithm's output
  * for a given seed, only its speed/memory footprint.
  *
- * <p>Arrival times are spread over a window that grows with task count
- * (a floor of 100s, then roughly {@value #ARRIVAL_RATE_PER_SECOND}
- * arrivals/second beyond that) rather than the fixed 100-second window
- * {@link FullDemo}/{@link Demo} use. Holding the window fixed while task
- * count climbs into the tens of thousands means more and more tasks land in
- * the same short interval, which both inflates per-resource contention in
- * the decoder and stops "task count" from being the only thing that varies
- * between tiers. At 100 and 1,000 tasks this produces the same ~100s window
- * those other demos use, so results at this framework's original scale are
- * unaffected.
+ * <p>Arrival times are spread over a window sized from the resource pool's
+ * actual aggregate MIPS capacity (via {@link #TARGET_UTILIZATION}), not a
+ * fixed window or a guessed rate. {@code decode()} schedules each task by
+ * scanning backward through its assigned resource's already-scheduled event
+ * list for a gap, so an oversubscribed workload (arrivals faster than the
+ * pool can drain) makes every resource's list grow without bound and each
+ * scan slower and slower as it does -- this is what made an earlier version
+ * of this class (a flat 50-arrivals/second window, about 29x more than the
+ * default 12-resource pool can sustain) blow up at 10,000+ tasks even for
+ * algorithms with no other bottleneck. Task count is still the only thing
+ * that varies between tiers; the arrival math just keeps utilization -- and
+ * therefore backlog, and therefore decode() cost -- comparable across them
+ * instead of compounding with raw task count.
  *
  * <p>Each task count runs once per algorithm (not wrapped in
  * {@link ExperimentRunner}'s 30-repeat statistical loop) so the largest
@@ -77,8 +80,19 @@ import java.util.Random;
  */
 public final class ScalabilityDemo {
 
-    /** Target arrival rate once the window grows past its 100s floor (see class Javadoc). */
-    private static final double ARRIVAL_RATE_PER_SECOND = 50.0;
+    /**
+     * Target aggregate utilization (arriving work / total resource capacity)
+     * used to size the arrival window in {@link #buildSyntheticTasks}. Kept
+     * deliberately low: this framework's {@code decode()} schedules each task
+     * by scanning backward through its resource's already-scheduled event
+     * list looking for a gap, so the more backlogged a resource gets, the
+     * longer that scan takes -- an earlier version of this constant was a
+     * flat, unchecked 50 tasks/second, which turned out to be about 29x more
+     * than the default 12-resource pool can actually sustain, regardless of
+     * task count. This value is checked against the pool's actual aggregate
+     * MIPS at runtime instead of assuming a fixed rate.
+     */
+    private static final double TARGET_UTILIZATION = 0.2;
 
     private ScalabilityDemo() { }
 
@@ -110,7 +124,7 @@ public final class ScalabilityDemo {
 
         for (int tier = 0; tier < taskCounts.length; tier++) {
             int numTasks = taskCounts[tier];
-            List<CloudTask> tasks = buildSyntheticTasks(numTasks, config.getRandomSeed());
+            List<CloudTask> tasks = buildSyntheticTasks(numTasks, config.getRandomSeed(), resources);
             System.out.println();
             System.out.println("=== " + numTasks + " tasks ===");
 
@@ -121,6 +135,7 @@ public final class ScalabilityDemo {
                     configuredSeed(new RlGaTaskSchedulingAlgorithm(tasks, resources), config));
 
             for (SchedulingAlgorithm algo : algorithms) {
+                System.out.println("  " + algo.getName() + " starting...");
                 long start = System.currentTimeMillis();
                 SchedulingResult result = algo.run();
                 SchedulingMetrics metrics = MetricsCalculator.compute(algo.getName(), result, resources);
@@ -170,6 +185,7 @@ public final class ScalabilityDemo {
         algo.setPopulationSize(config.getPopulationSize());
         algo.setGenerationCount(config.getGenerationCount());
         algo.setRandomSeed(config.getRandomSeed());
+        algo.setVerboseProgress(true);
         return algo;
     }
 
@@ -190,11 +206,24 @@ public final class ScalabilityDemo {
     // buildSyntheticTasks() is the same style as FullDemo's, with the
     // arrival-window change described in the class Javadoc.
     // ---------------------------------------------------------------------
-    private static List<CloudTask> buildSyntheticTasks(int count, long seed) {
+    private static List<CloudTask> buildSyntheticTasks(int count, long seed, List<ResourceCandidate> resources) {
         Random rnd = new Random(seed);
         List<CloudTask> tasks = new ArrayList<>();
         TaskPriority[] priorities = TaskPriority.values();
-        double arrivalWindowSeconds = Math.max(100.0, count / ARRIVAL_RATE_PER_SECOND);
+
+        // Arrival window sized from the resource pool's actual aggregate
+        // capacity (not a guessed constant -- see TARGET_UTILIZATION's
+        // Javadoc for why that went wrong before). avgTaskLengthMi below is
+        // the closed-form mean of the "5_000 + nextInt(45_000)" draw used
+        // for each task's own length.
+        double aggregateMips = 0.0;
+        for (ResourceCandidate r : resources) {
+            aggregateMips += r.getMips();
+        }
+        final double avgTaskLengthMi = 5_000 + 45_000 / 2.0;
+        double sustainableTasksPerSecond = aggregateMips / avgTaskLengthMi;
+        double targetTasksPerSecond = TARGET_UTILIZATION * sustainableTasksPerSecond;
+        double arrivalWindowSeconds = Math.max(100.0, count / targetTasksPerSecond);
 
         for (int i = 0; i < count; i++) {
             long length = 5_000 + rnd.nextInt(45_000);

@@ -104,6 +104,18 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
     public void setMutationRate(double mutationRate) { this.mutationRate = mutationRate; }
     public void setSeedGenotypes(List<int[]> seeds) { this.externalSeedGenotypes = seeds; }
 
+    /**
+     * Off by default (so existing entry points' console output is unchanged).
+     * When true, prints one line every {@link #progressIntervalGenerations}
+     * generations -- e.g. "[LIWSA-Task] generation 20/100 elapsed=48.2s" --
+     * so a long run at a large task count has a visible heartbeat instead of
+     * going silent until it's entirely done. {@link ScalabilityDemo} turns
+     * this on for exactly that reason.
+     */
+    protected boolean verboseProgress = false;
+    protected int progressIntervalGenerations = 5;
+    public void setVerboseProgress(boolean v) { this.verboseProgress = v; }
+
     @Override
     public String getName() {
         return "LIWSA-Task";
@@ -121,7 +133,16 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
         initializePopulation();
         double tau = calibrateTau();
 
+        if (verboseProgress) {
+            System.out.printf("    [%s] setup done (%d tasks, %d resources), starting search: elapsed=%.1fs%n",
+                    getName(), taskOrder.size(), resources.size(), (System.currentTimeMillis() - searchStartMillis) / 1000.0);
+        }
+
         for (int gen = 0; gen < generationCount; gen++) {
+            if (verboseProgress && gen % progressIntervalGenerations == 0) {
+                System.out.printf("    [%s] generation %d/%d  elapsed=%.1fs%n",
+                        getName(), gen, generationCount, (System.currentTimeMillis() - searchStartMillis) / 1000.0);
+            }
             int[] frontNumber = new int[populationSize];
             List<List<Integer>> fronts = nonDominatedSort(frontNumber);
 
