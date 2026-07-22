@@ -29,6 +29,7 @@ public final class SimulationConfig {
     private int generationCount = 100;
     private int numExperimentRuns = 30;
     private int[] taskCountSweep = {100, 1_000, 10_000, 100_000};
+    private long perAlgorithmTimeoutSeconds = 600;
 
     private int instancesPerVmType = 4;
     private double brokerMonitoringPeriod = -1; // -1 disables periodic utilisation monitoring
@@ -60,6 +61,10 @@ public final class SimulationConfig {
     public int[] getTaskCountSweep() { return taskCountSweep; }
     public void setTaskCountSweep(int[] v) { this.taskCountSweep = v; }
 
+    /** Wall-clock budget, per (algorithm, task count) run, for ScalabilityDemo's timeout/skip safety net. */
+    public long getPerAlgorithmTimeoutSeconds() { return perAlgorithmTimeoutSeconds; }
+    public void setPerAlgorithmTimeoutSeconds(long v) { this.perAlgorithmTimeoutSeconds = v; }
+
     public int getInstancesPerVmType() { return instancesPerVmType; }
     public void setInstancesPerVmType(int v) { this.instancesPerVmType = v; }
 
@@ -75,6 +80,7 @@ public final class SimulationConfig {
                 + ", taskWorkloadPath=" + taskWorkloadPath + ", taskWorkloadFormat=" + taskWorkloadFormat
                 + ", populationSize=" + populationSize + ", generationCount=" + generationCount
                 + ", numExperimentRuns=" + numExperimentRuns + ", taskCountSweep=" + java.util.Arrays.toString(taskCountSweep)
+                + ", perAlgorithmTimeoutSeconds=" + perAlgorithmTimeoutSeconds
                 + ", instancesPerVmType=" + instancesPerVmType
                 + ", brokerMonitoringPeriod=" + brokerMonitoringPeriod + ", resultsOutputDir=" + resultsOutputDir + "}";
     }

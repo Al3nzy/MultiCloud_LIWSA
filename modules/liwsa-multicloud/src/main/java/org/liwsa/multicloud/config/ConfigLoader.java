@@ -20,6 +20,7 @@ import java.util.Properties;
  * simulation.taskWorkloadFormat      (csv | xml | json)
  * simulation.resultsOutputDir
  * simulation.taskCountSweep          (comma-separated, e.g. "100,1000,10000,100000"; see ScalabilityDemo)
+ * simulation.perAlgorithmTimeoutSeconds (ScalabilityDemo's timeout/skip safety net, default 600)
  * algorithm.populationSize
  * algorithm.generationCount
  * algorithm.numExperimentRuns
@@ -62,6 +63,7 @@ public final class ConfigLoader {
         cfg.setTaskWorkloadFormat(props.getProperty("simulation.taskWorkloadFormat", cfg.getTaskWorkloadFormat()));
         cfg.setResultsOutputDir(props.getProperty("simulation.resultsOutputDir", cfg.getResultsOutputDir()));
         cfg.setTaskCountSweep(getIntArray(props, "simulation.taskCountSweep", cfg.getTaskCountSweep()));
+        cfg.setPerAlgorithmTimeoutSeconds(getLong(props, "simulation.perAlgorithmTimeoutSeconds", cfg.getPerAlgorithmTimeoutSeconds()));
 
         cfg.setPopulationSize(getInt(props, "algorithm.populationSize", cfg.getPopulationSize()));
         cfg.setGenerationCount(getInt(props, "algorithm.generationCount", cfg.getGenerationCount()));

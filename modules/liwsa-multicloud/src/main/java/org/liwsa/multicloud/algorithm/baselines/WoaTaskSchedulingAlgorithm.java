@@ -79,6 +79,19 @@ public class WoaTaskSchedulingAlgorithm implements SchedulingAlgorithm {
     public void setRandomSeed(long v) { this.randomSeed = v; }
     public void setMakespanWeight(double v) { this.makespanWeight = v; }
 
+    /**
+     * Off by default. When true, prints one line every
+     * {@link #PROGRESS_INTERVAL_ITERATIONS} iterations -- elapsed time, plus
+     * how many of this iteration's {@code numTasks} positions landed on the
+     * single busiest resource (see {@link #maxTasksOnAnyResource}) -- so a
+     * long run has a visible heartbeat, and so a slowdown caused by load
+     * concentrating on one resource (see the reflection fix in
+     * {@link #reflectIntoRange}) is visible directly rather than inferred.
+     */
+    private boolean verboseProgress = false;
+    private static final int PROGRESS_INTERVAL_ITERATIONS = 5;
+    public void setVerboseProgress(boolean v) { this.verboseProgress = v; }
+
     @Override
     public String getName() {
         return "WOA";
@@ -112,7 +125,17 @@ public class WoaTaskSchedulingAlgorithm implements SchedulingAlgorithm {
         double bestMakespan = makespans[bestIdx];
         double bestCost = costs[bestIdx];
 
+        if (verboseProgress) {
+            System.out.printf("    [%s] setup done (%d tasks, %d resources), starting search: elapsed=%.1fs%n",
+                    getName(), n, m, (System.currentTimeMillis() - startMillis) / 1000.0);
+        }
+
         for (int t = 0; t < iterations; t++) {
+            if (verboseProgress && t % PROGRESS_INTERVAL_ITERATIONS == 0) {
+                int busiest = maxTasksOnAnyResource(discretize(bestPosition, m), m);
+                System.out.printf("    [%s] iteration %d/%d  elapsed=%.1fs  busiest resource has %d/%d tasks (best-so-far)%n",
+                        getName(), t, iterations, (System.currentTimeMillis() - startMillis) / 1000.0, busiest, n);
+            }
             double a = 2.0 - 2.0 * t / Math.max(iterations - 1, 1);
 
             for (int i = 0; i < populationSize; i++) {
@@ -199,6 +222,26 @@ public class WoaTaskSchedulingAlgorithm implements SchedulingAlgorithm {
             g[k] = Math.max(0, Math.min(numResources - 1, idx));
         }
         return g;
+    }
+
+    /**
+     * Diagnostic only (used by {@link #verboseProgress}): how many of this
+     * genotype's tasks landed on its single most-assigned resource. A large
+     * value relative to {@code genotype.length / numResources} (an even
+     * split) means this particular whale concentrated load rather than
+     * spreading it, which is what makes {@link #findFinishTime}'s backward
+     * scan expensive for that resource.
+     */
+    private int maxTasksOnAnyResource(int[] genotype, int numResources) {
+        int[] counts = new int[numResources];
+        for (int r : genotype) {
+            counts[r]++;
+        }
+        int max = 0;
+        for (int c : counts) {
+            max = Math.max(max, c);
+        }
+        return max;
     }
 
     /**

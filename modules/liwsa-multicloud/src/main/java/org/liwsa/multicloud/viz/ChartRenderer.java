@@ -163,7 +163,9 @@ public final class ChartRenderer {
         double maxVal = 0.0;
         for (double[] vals : seriesValues) {
             for (double v : vals) {
-                maxVal = Math.max(maxVal, v);
+                if (!Double.isNaN(v)) {
+                    maxVal = Math.max(maxVal, v);
+                }
             }
         }
         if (maxVal <= 0) {
@@ -213,20 +215,33 @@ public final class ChartRenderer {
         }
         drawCentered(g, xAxisLabel, (chartLeft + chartRight) / 2, HEIGHT - 12);
 
-        // One polyline + point markers per series.
+        // One polyline + point markers per series. NaN entries (skipped/timed-out
+        // runs, see ScalabilityDemo) are gaps: no marker, and no line segment
+        // drawn to or from them, rather than a misleading drop to zero.
         for (int s = 0; s < seriesValues.size(); s++) {
             double[] vals = seriesValues.get(s);
             g.setColor(PALETTE[s % PALETTE.length]);
             g.setStroke(new BasicStroke(2.2f));
-            int prevX = px[0];
-            int prevY = chartBottom - (int) (chartHeight * (vals[0] / maxVal));
-            for (int i = 1; i < vals.length; i++) {
+            int prevX = 0;
+            int prevY = 0;
+            boolean havePrev = false;
+            for (int i = 0; i < vals.length; i++) {
+                if (Double.isNaN(vals[i])) {
+                    havePrev = false;
+                    continue;
+                }
                 int y = chartBottom - (int) (chartHeight * (vals[i] / maxVal));
-                g.drawLine(prevX, prevY, px[i], y);
+                if (havePrev) {
+                    g.drawLine(prevX, prevY, px[i], y);
+                }
                 prevX = px[i];
                 prevY = y;
+                havePrev = true;
             }
             for (int i = 0; i < vals.length; i++) {
+                if (Double.isNaN(vals[i])) {
+                    continue;
+                }
                 int y = chartBottom - (int) (chartHeight * (vals[i] / maxVal));
                 g.fillOval(px[i] - 4, y - 4, 8, 8);
             }

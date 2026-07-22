@@ -25,6 +25,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Low-load-to-high-load scalability sweep: runs all four algorithms once
@@ -53,19 +59,20 @@ import java.util.Random;
  * OutOfMemoryError) without them. Neither changes any algorithm's output
  * for a given seed, only its speed/memory footprint.
  *
- * <p>Arrival times are spread over a window sized from the resource pool's
- * actual aggregate MIPS capacity (via {@link #TARGET_UTILIZATION}), not a
- * fixed window or a guessed rate. {@code decode()} schedules each task by
- * scanning backward through its assigned resource's already-scheduled event
- * list for a gap, so an oversubscribed workload (arrivals faster than the
- * pool can drain) makes every resource's list grow without bound and each
- * scan slower and slower as it does -- this is what made an earlier version
- * of this class (a flat 50-arrivals/second window, about 29x more than the
- * default 12-resource pool can sustain) blow up at 10,000+ tasks even for
- * algorithms with no other bottleneck. Task count is still the only thing
- * that varies between tiers; the arrival math just keeps utilization -- and
- * therefore backlog, and therefore decode() cost -- comparable across them
- * instead of compounding with raw task count.
+ * <p>Arrival times are spread over a window sized from a fixed arrivals/second
+ * rate (see {@link #ARRIVAL_RATE_PER_SECOND}) chosen to match this
+ * codebase's own {@code FullDemo}/{@code Demo} convention, so scheduling
+ * quality matters at every tier the same way it does in their results
+ * instead of being diluted away by an overly conservative workload.
+ *
+ * <p>Reproducing that same contention level at 100,000 tasks (not just
+ * 1,000) means {@code decode()} can end up scanning a substantial backlog
+ * again, and how expensive that gets depends on exactly how each
+ * algorithm's search happens to distribute load across the resource pool --
+ * which isn't fully predictable in advance. {@code simulation.perAlgorithmTimeoutSeconds}
+ * is the safety net for that: any single (algorithm, task count) run that
+ * exceeds its budget is skipped (clearly logged, no CSV row or chart point
+ * for it) rather than blocking the rest of the sweep.
  *
  * <p>Each task count runs once per algorithm (not wrapped in
  * {@link ExperimentRunner}'s 30-repeat statistical loop) so the largest
@@ -81,18 +88,30 @@ import java.util.Random;
 public final class ScalabilityDemo {
 
     /**
-     * Target aggregate utilization (arriving work / total resource capacity)
-     * used to size the arrival window in {@link #buildSyntheticTasks}. Kept
-     * deliberately low: this framework's {@code decode()} schedules each task
-     * by scanning backward through its resource's already-scheduled event
-     * list looking for a gap, so the more backlogged a resource gets, the
-     * longer that scan takes -- an earlier version of this constant was a
-     * flat, unchecked 50 tasks/second, which turned out to be about 29x more
-     * than the default 12-resource pool can actually sustain, regardless of
-     * task count. This value is checked against the pool's actual aggregate
-     * MIPS at runtime instead of assuming a fixed rate.
+     * Arrivals per second, held constant across every tier. Chosen to match
+     * {@code FullDemo}/{@code Demo}'s own convention exactly: they spread
+     * their default 1,000 tasks over a fixed 100-second window, i.e.
+     * 1000/100 = 10 tasks/second -- so this class's 1,000-task tier now
+     * reproduces that same arrival pattern (same rate, same resulting
+     * ~100-second window) instead of inventing its own.
+     *
+     * <p>An earlier version of this constant targeted a fixed 20%
+     * <em>utilization</em> instead of a fixed <em>rate</em>. That kept
+     * {@code decode()} fast, but at that low a contention level almost no
+     * task ever has to wait for a resource, so which algorithm did the
+     * scheduling barely affects the result -- confirmed empirically: the
+     * spread between best and worst algorithm's makespan was 2.1% at 1,000
+     * tasks and only 0.04% at 100,000, versus 119.6% in this same codebase's
+     * own {@code ExperimentDemo} output at 1,000 tasks. Holding rate (not
+     * utilization) constant instead reproduces {@code ExperimentDemo}'s own
+     * ~580%-of-capacity contention level at every tier, which is what
+     * actually makes scheduling quality -- and therefore this comparison --
+     * meaningful. The tradeoff: this workload is genuinely oversubscribed
+     * again, which can make {@code decode()} slow at the largest tier(s);
+     * {@code simulation.perAlgorithmTimeoutSeconds} (config-driven, default
+     * 600 seconds) exists so that no longer means an indefinite wait.
      */
-    private static final double TARGET_UTILIZATION = 0.2;
+    private static final double ARRIVAL_RATE_PER_SECOND = 10.0;
 
     private ScalabilityDemo() { }
 
@@ -114,6 +133,8 @@ public final class ScalabilityDemo {
         // LinkedHashMap so chart legends list algorithms in first-seen order
         // (which is the same fixed order every tier, since the same four
         // algorithm objects are (re)created in the same order each time).
+        // NaN-filled by default so a skipped (timed-out) run leaves a gap in
+        // its chart line instead of a misleading drop to zero.
         Map<String, double[]> makespanByAlgo = new LinkedHashMap<>();
         Map<String, double[]> costByAlgo = new LinkedHashMap<>();
         Map<String, double[]> energyByAlgo = new LinkedHashMap<>();
@@ -124,20 +145,47 @@ public final class ScalabilityDemo {
 
         for (int tier = 0; tier < taskCounts.length; tier++) {
             int numTasks = taskCounts[tier];
-            List<CloudTask> tasks = buildSyntheticTasks(numTasks, config.getRandomSeed(), resources);
+            List<CloudTask> tasks = buildSyntheticTasks(numTasks, config.getRandomSeed());
             System.out.println();
             System.out.println("=== " + numTasks + " tasks ===");
 
             List<SchedulingAlgorithm> algorithms = List.of(
                     configuredLiwsa(new LiwsaTaskPlanningAlgorithm(tasks, resources), config),
                     configuredLiwsa(new LiwsaTaskMLPlanningAlgorithm(tasks, resources), config),
-                    configuredSeed(new WoaTaskSchedulingAlgorithm(tasks, resources), config),
+                    configuredWoa(new WoaTaskSchedulingAlgorithm(tasks, resources), config),
                     configuredSeed(new RlGaTaskSchedulingAlgorithm(tasks, resources), config));
 
             for (SchedulingAlgorithm algo : algorithms) {
+                makespanByAlgo.computeIfAbsent(algo.getName(), k -> nanArray(taskCounts.length));
+                costByAlgo.computeIfAbsent(algo.getName(), k -> nanArray(taskCounts.length));
+                energyByAlgo.computeIfAbsent(algo.getName(), k -> nanArray(taskCounts.length));
+                runtimeByAlgo.computeIfAbsent(algo.getName(), k -> nanArray(taskCounts.length));
+
                 System.out.println("  " + algo.getName() + " starting...");
                 long start = System.currentTimeMillis();
-                SchedulingResult result = algo.run();
+
+                SchedulingResult result;
+                long timeoutSeconds = config.getPerAlgorithmTimeoutSeconds();
+                ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+                    Thread th = new Thread(r, algo.getName() + "-runner");
+                    th.setDaemon(true); // an abandoned (timed-out) run can't keep the JVM alive
+                    return th;
+                });
+                try {
+                    Future<SchedulingResult> future = executor.submit(algo::run);
+                    result = future.get(timeoutSeconds, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    System.out.printf("  %-16s SKIPPED - exceeded %ds budget (still running in the "
+                            + "background; no CSV row or chart point for this tier)%n",
+                            algo.getName(), timeoutSeconds);
+                    continue;
+                } catch (ExecutionException e) {
+                    System.out.println("  " + algo.getName() + " FAILED: " + e.getCause());
+                    continue;
+                } finally {
+                    executor.shutdown();
+                }
+
                 SchedulingMetrics metrics = MetricsCalculator.compute(algo.getName(), result, resources);
                 long elapsedMs = System.currentTimeMillis() - start;
 
@@ -145,10 +193,10 @@ public final class ScalabilityDemo {
                         algo.getName(), metrics.makespan, metrics.totalCost, elapsedMs);
                 csv.append(metrics.toCsvRow()).append('\n');
 
-                makespanByAlgo.computeIfAbsent(algo.getName(), k -> new double[taskCounts.length])[tier] = metrics.makespan;
-                costByAlgo.computeIfAbsent(algo.getName(), k -> new double[taskCounts.length])[tier] = metrics.totalCost;
-                energyByAlgo.computeIfAbsent(algo.getName(), k -> new double[taskCounts.length])[tier] = metrics.energyProxy;
-                runtimeByAlgo.computeIfAbsent(algo.getName(), k -> new double[taskCounts.length])[tier] = metrics.algorithmRuntimeMillis;
+                makespanByAlgo.get(algo.getName())[tier] = metrics.makespan;
+                costByAlgo.get(algo.getName())[tier] = metrics.totalCost;
+                energyByAlgo.get(algo.getName())[tier] = metrics.energyProxy;
+                runtimeByAlgo.get(algo.getName())[tier] = metrics.algorithmRuntimeMillis;
             }
         }
 
@@ -181,6 +229,12 @@ public final class ScalabilityDemo {
         System.out.println("Wrote scaling charts to " + chartsDir);
     }
 
+    private static double[] nanArray(int length) {
+        double[] a = new double[length];
+        Arrays.fill(a, Double.NaN);
+        return a;
+    }
+
     private static LiwsaTaskPlanningAlgorithm configuredLiwsa(LiwsaTaskPlanningAlgorithm algo, SimulationConfig config) {
         algo.setPopulationSize(config.getPopulationSize());
         algo.setGenerationCount(config.getGenerationCount());
@@ -189,8 +243,9 @@ public final class ScalabilityDemo {
         return algo;
     }
 
-    private static WoaTaskSchedulingAlgorithm configuredSeed(WoaTaskSchedulingAlgorithm algo, SimulationConfig config) {
+    private static WoaTaskSchedulingAlgorithm configuredWoa(WoaTaskSchedulingAlgorithm algo, SimulationConfig config) {
         algo.setRandomSeed(config.getRandomSeed());
+        algo.setVerboseProgress(true);
         return algo;
     }
 
@@ -206,24 +261,11 @@ public final class ScalabilityDemo {
     // buildSyntheticTasks() is the same style as FullDemo's, with the
     // arrival-window change described in the class Javadoc.
     // ---------------------------------------------------------------------
-    private static List<CloudTask> buildSyntheticTasks(int count, long seed, List<ResourceCandidate> resources) {
+    private static List<CloudTask> buildSyntheticTasks(int count, long seed) {
         Random rnd = new Random(seed);
         List<CloudTask> tasks = new ArrayList<>();
         TaskPriority[] priorities = TaskPriority.values();
-
-        // Arrival window sized from the resource pool's actual aggregate
-        // capacity (not a guessed constant -- see TARGET_UTILIZATION's
-        // Javadoc for why that went wrong before). avgTaskLengthMi below is
-        // the closed-form mean of the "5_000 + nextInt(45_000)" draw used
-        // for each task's own length.
-        double aggregateMips = 0.0;
-        for (ResourceCandidate r : resources) {
-            aggregateMips += r.getMips();
-        }
-        final double avgTaskLengthMi = 5_000 + 45_000 / 2.0;
-        double sustainableTasksPerSecond = aggregateMips / avgTaskLengthMi;
-        double targetTasksPerSecond = TARGET_UTILIZATION * sustainableTasksPerSecond;
-        double arrivalWindowSeconds = Math.max(100.0, count / targetTasksPerSecond);
+        double arrivalWindowSeconds = Math.max(100.0, count / ARRIVAL_RATE_PER_SECOND);
 
         for (int i = 0; i < count; i++) {
             long length = 5_000 + rnd.nextInt(45_000);
