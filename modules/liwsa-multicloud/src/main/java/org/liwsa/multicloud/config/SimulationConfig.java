@@ -29,7 +29,7 @@ public final class SimulationConfig {
     private int generationCount = 100;
     private int numExperimentRuns = 30;
     private int[] taskCountSweep = {100, 1_000, 10_000, 100_000};
-    private long perAlgorithmTimeoutSeconds = 600;
+    private long perAlgorithmTimeoutSeconds = 6000;
 
     private int instancesPerVmType = 4;
     private double brokerMonitoringPeriod = -1; // -1 disables periodic utilisation monitoring
