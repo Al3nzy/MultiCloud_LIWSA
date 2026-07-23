@@ -150,7 +150,7 @@ sequenceDiagram
 
 ## 📊 Sample Results
 
-Output produced by `FullDemo` on the default synthetic 1000-task workload, comparing all four algorithms:
+Output produced by `FullDemo` on the default synthetic 1000-task workload, comparing all four algorithms and the last one from `ScalabilityDemo`:
 
 <div align="center">
 
@@ -161,6 +161,8 @@ Output produced by `FullDemo` on the default synthetic 1000-task workload, compa
 ![Energy comparison](results/charts/energy.png)
 
 ![LIWSA-Task execution timeline](results/charts/liwsa_gantt.png)
+
+![Scalability Makespan comparison from 100-100,000 tasks](results/charts/scalability-makespan.png)
 
 </div>
 
