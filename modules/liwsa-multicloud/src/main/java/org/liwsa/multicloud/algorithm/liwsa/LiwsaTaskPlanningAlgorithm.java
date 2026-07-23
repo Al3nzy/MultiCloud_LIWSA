@@ -116,6 +116,18 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
     protected int progressIntervalGenerations = 5;
     public void setVerboseProgress(boolean v) { this.verboseProgress = v; }
 
+    /**
+     * Cached once per {@link #run()} (see where {@link #taskOrder} is set)
+     * rather than rechecked per task: whether any task in this workload
+     * declares a dependency at all. {@link #decode} uses this to skip
+     * building its {@code finish}-time lookup map entirely when nothing
+     * would ever read from it -- see {@link #decode} for why that map is
+     * otherwise a meaningful amount of wasted allocation on dependency-free
+     * workloads (which is every synthetic workload in this framework;
+     * dependencies only come from {@code TaskWorkloadReader}-loaded files).
+     */
+    private boolean hasAnyDependencies;
+
     @Override
     public String getName() {
         return "LIWSA-Task";
@@ -129,6 +141,7 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
 
         random = (randomSeed != null) ? new Random(randomSeed) : new Random();
         taskOrder = computeTaskOrder(tasksInput);
+        hasAnyDependencies = taskOrder.stream().anyMatch(t -> !t.isIndependent());
 
         initializePopulation();
         double tau = calibrateTau();
@@ -347,18 +360,26 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
 
     protected double[] decode(int[] genotype) {
         Map<Integer, List<Event>> schedules = new HashMap<>();
-        Map<Integer, Double> finish = new HashMap<>();
+        // Only ever actually populated when hasAnyDependencies is true --
+        // building and filling this with one entry per task (up to
+        // numTasks entries) is real, measurable allocation/GC overhead that
+        // has zero payoff on a dependency-free workload, since nothing
+        // would ever read from it. See the field's own Javadoc.
+        Map<Integer, Double> finish = hasAnyDependencies ? new HashMap<>() : null;
         double cost = 0.0;
+        double makespan = 0.0;
 
         for (int k = 0; k < taskOrder.size(); k++) {
             CloudTask task = taskOrder.get(k);
             ResourceCandidate resource = resources.get(genotype[k]);
 
             double ready = task.getArrivalTime();
-            for (Integer depId : task.getDependencies()) {
-                Double pf = finish.get(depId);
-                if (pf != null) {
-                    ready = Math.max(ready, pf);
+            if (hasAnyDependencies) {
+                for (Integer depId : task.getDependencies()) {
+                    Double pf = finish.get(depId);
+                    if (pf != null) {
+                        ready = Math.max(ready, pf);
+                    }
                 }
             }
 
@@ -366,14 +387,13 @@ public class LiwsaTaskPlanningAlgorithm implements SchedulingAlgorithm {
             List<Event> sched = schedules.computeIfAbsent(genotype[k], key -> new ArrayList<>());
             double fin = findFinishTime(sched, ready, duration, true);
 
-            finish.put(task.getCloudletId(), fin);
+            if (hasAnyDependencies) {
+                finish.put(task.getCloudletId(), fin);
+            }
+            makespan = Math.max(makespan, fin);
             cost += duration * resource.getCostPerSecond();
         }
 
-        double makespan = 0.0;
-        for (double f : finish.values()) {
-            makespan = Math.max(makespan, f);
-        }
         return new double[]{makespan, cost};
     }
 

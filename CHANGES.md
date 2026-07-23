@@ -1,5 +1,36 @@
 # What changed in this batch
 
+## Latest round: a real, safe fix found by investigating the CPU question
+
+**`LiwsaTaskPlanningAlgorithm.java` changed again** (first time since the
+original `solitaryMove` fix — everything in between left it untouched, as
+repeatedly confirmed by diff). Its `decode()` unconditionally built and
+filled a `Map<Integer, Double> finish` with **one entry per task** — for a
+100,000-task genotype, that's 100,000 `HashMap.put()` calls, each boxing an
+Integer key and a Double value, on *every single decode() call* (≈3,000
+times over a full run — up to ~300 million wasted puts total). This map
+exists to support task **dependencies**, but every synthetic workload in
+this framework (all of `Demo`/`FullDemo`/`ExperimentDemo`/`ScalabilityDemo`)
+has none — dependencies only come from files loaded via
+`TaskWorkloadReader`. So all that allocation had zero payoff: nothing was
+ever read back out of it.
+
+**Fix:** check once per run (`hasAnyDependencies`, set alongside
+`taskOrder`) whether *any* task has a dependency at all. If not, skip
+building/populating the map entirely, and track makespan with a simple
+running max instead of re-deriving it from the map's values afterward
+(mathematically identical result — same set of numbers, maxed incrementally
+instead of after the fact; the old max-after-the-fact approach would also
+have thrown a `NullPointerException` once the map could be null, which is
+why the running-max change was necessary alongside the skip, not optional).
+For workloads that *do* have dependencies, behavior is completely
+unchanged. Doesn't touch `findFinishTime`'s scan logic at all — this is a
+pure allocation-reduction fix, isolated to `LiwsaTaskPlanningAlgorithm`
+(`LiwsaTaskMLPlanningAlgorithm` inherits it; `WOA`/`RL-GA-lite` never had
+this pattern in the first place — checked).
+
+---
+
 ## Latest round: workload realism + a safety net (read this first)
 
 **The problem:** after the WOA fix, the sweep ran fast but the results
